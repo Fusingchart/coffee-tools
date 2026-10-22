@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coffee Brew Ratio Calculator: Coffee &amp; Water Amounts</title>
+<meta name="description" content="Free coffee ratio calculator. Pick pour-over, French press, AeroPress, espresso or cold brew and get coffee grams and water ml for cups or a target amount. Works in g/oz and ml/fl oz.">
+<style>
+  :root { --bg:#faf6f1; --card:#fff; --ink:#2b2118; --muted:#6b5b4d; --accent:#7a4a21; --accent-d:#5c3516; --line:#e3d7ca; --ok:#f3e9dd; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.7rem; line-height:1.2; margin: 8px 0 4px; }
+  h2 { font-size: 1.2rem; margin: 1.6em 0 .4em; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .full { grid-column: 1 / -1; }
+  label { display:block; font-weight:600; font-size:.9rem; margin-bottom:4px; }
+  select, input[type=number] { width:100%; font: inherit; padding: 10px; border:1px solid var(--line); border-radius: 8px; background:#fff; color:var(--ink); min-height: 44px; }
+  select:focus, input:focus, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ratio-row { display:flex; align-items:center; gap:8px; }
+  .ratio-row span { font-weight:600; }
+  .ratio-row input { max-width: 110px; }
+  .hint { font-size:.85rem; color: var(--muted); margin-top:4px; }
+  .results { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:16px; }
+  .res { background: var(--ok); border-radius: 10px; padding: 12px; }
+  .res .k { font-size:.8rem; color: var(--muted); text-transform: uppercase; letter-spacing:.04em; }
+  .res .v { font-size: 1.9rem; font-weight:700; color: var(--accent-d); line-height:1.2; word-break: break-word; }
+  .res .s { font-size:.9rem; color: var(--muted); }
+  .error { color:#9b1c1c; font-weight:600; margin-top:12px; min-height: 1.2em; }
+  .notes { margin-top:16px; border-top:1px solid var(--line); padding-top:12px; }
+  .notes dl { margin:0; display:grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+  .notes dt { font-weight:600; }
+  .notes dd { margin:0; }
+  .promo { margin-top:16px; padding:12px 14px; border:1px dashed var(--accent); border-radius:10px; background:#fffaf3; }
+  .promo a { color: var(--accent-d); font-weight:600; }
+  a { color: var(--accent-d); }
+  footer { margin: 28px 0 8px; padding-top: 12px; border-top:1px solid var(--line); font-size:.85rem; color: var(--muted); }
+  @media (max-width: 480px) {
+    .grid, .results { grid-template-columns: 1fr; }
+    .notes dl { grid-template-columns: 1fr; }
+    .notes dt { margin-top: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Coffee Brew Ratio &amp; Water Calculator</h1>
+    <p class="lead">Choose a brew method, say how much you want to make, and get the coffee and water amounts. Free, no sign-up, and it works offline.</p>
+  </header>
+
+  <main>
+    <form class="card" id="calc" autocomplete="off" onsubmit="return false">
+      <div class="grid">
+        <div class="full">
+          <label for="method">Brew method</label>
+          <select id="method"></select>
+        </div>
+
+        <div class="full">
+          <label for="ratio">Ratio (coffee : water, by weight)</label>
+          <div class="ratio-row">
+            <span>1 :</span>
+            <input type="number" id="ratio" inputmode="decimal" step="any" min="1" max="30">
+            <button type="button" id="reset-ratio" style="min-height:44px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 12px;font:inherit;cursor:pointer">Reset</button>
+          </div>
+          <div class="hint" id="ratio-hint"></div>
+        </div>
+
+        <div>
+          <label for="mode">I know my target…</label>
+          <select id="mode">
+            <option value="cups">Number of cups</option>
+            <option value="water">Amount of water</option>
+            <option value="coffee">Amount of coffee</option>
+          </select>
+        </div>
+        <div>
+          <label for="amount" id="amount-label">Cups</label>
+          <input type="number" id="amount" inputmode="decimal" step="any" min="0">
+        </div>
+
+        <div>
+          <label for="wunit">Weight unit</label>
+          <select id="wunit">
+            <option value="g">grams (g)</option>
+            <option value="oz">ounces (oz)</option>
+          </select>
+        </div>
+        <div>
+          <label for="vunit">Volume unit</label>
+          <select id="vunit">
+            <option value="ml">millilitres (ml)</option>
+            <option value="floz">fluid ounces (fl oz)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="error" id="error" role="alert"></div>
+
+      <div class="results" aria-live="polite">
+        <div class="res">
+          <div class="k">Ground coffee</div>
+          <div class="v" id="out-coffee">–</div>
+          <div class="s" id="out-coffee-alt">&nbsp;</div>
+        </div>
+        <div class="res">
+          <div class="k" id="water-label">Water</div>
+          <div class="v" id="out-water">–</div>
+          <div class="s" id="out-water-alt">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="notes">
+        <dl>
+          <dt>Grind</dt><dd id="note-grind"></dd>
+          <dt>Brew time</dt><dd id="note-time"></dd>
+          <dt>Water temp</dt><dd id="note-temp"></dd>
+          <dt>Tip</dt><dd id="note-tip"></dd>
+        </dl>
+      </div>
+    </form>
+
+    <div class="promo" id="affiliate-slot">
+      Want gear that makes these ratios easy? See our <a href="/coffee/">coffee brewing guides and gear picks</a>.
+    </div>
+
+    <section aria-labelledby="about">
+      <h2 id="about">How to use this coffee ratio calculator</h2>
+      <p>A brew ratio is the weight of ground coffee compared with the weight of water. A 1:16 ratio means 1 gram of coffee for every 16 grams of water. Because one millilitre of water weighs about one gram, you can measure the water in millilitres. Weighing coffee on a kitchen scale is more consistent than using scoops, since beans differ in size and density.</p>
+      <p>Pick your brew method and the calculator fills in a typical starting ratio. You can then enter the number of cups (we count one cup as 8 US fl oz, about 237 ml), the amount of water you want to use, or the amount of coffee you have. Change the ratio box if you prefer stronger or lighter coffee. A smaller second number, such as 1:15, gives a stronger cup, and a larger one, such as 1:17, gives a lighter cup.</p>
+      <h2>Typical ratios by method</h2>
+      <p>These are common starting points, not rules. Pour-over is often brewed around 1:15 to 1:17, and the Specialty Coffee Association's long-standing guideline for filter coffee is about 1:18, so anywhere in that area is reasonable. French press is commonly made at roughly 1:12 to 1:15. AeroPress recipes vary widely, from about 1:6 for a concentrate you dilute to around 1:16. Espresso uses a much smaller amount of liquid, often 1:2 measured as the liquid that ends up in the cup compared with the dry coffee dose. Cold brew is usually made as a concentrate at about 1:4 to 1:8 and then diluted with water or milk.</p>
+      <h2>Adjusting to taste</h2>
+      <p>If your coffee tastes sour or thin, try a finer grind or a slightly longer brew. If it tastes bitter or harsh, try a coarser grind or a shorter brew. Change one thing at a time and write down what you did, so you can repeat the cups you like.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Coffee Tools. Ratios, grind and time notes are general starting points; adjust them for your beans, equipment and taste. Everything on this page runs in your browser, and nothing you enter is sent anywhere.</p>
+  </footer>
+</div>
+
+<script>
+/* LOGIC START */
+var OZ_G = 28.349523125;
+var FLOZ_ML = 29.5735295625;
+var CUP_ML = 236.5882365; // 1 US cup = 8 US fl oz
+
+var METHODS = {
+  pourover: {
+    name: 'Pour-over (V60, Chemex, drip)',
+    ratio: 16, min: 15, max: 17,
+    grind: 'Medium-fine to medium, a little finer than for a drip machine basket filter; coarser for large batches.',
+    time: 'Roughly 2:30 to 4:00 total, depending on batch size.',
+    temp: 'About 90-96 \u00B0C (195-205 \u00B0F), just off the boil.',
+    tip: 'Wet the filter first and let the coffee bloom with a small pour for 30-45 seconds before the main pours.'
+  },
+  frenchpress: {
+    name: 'French press',
+    ratio: 15, min: 12, max: 16,
+    grind: 'Coarse, like coarse sea salt, so the metal filter can hold back the grounds.',
+    time: 'About 4 minutes of steeping, then press slowly and pour out right away.',
+    temp: 'About 93-96 \u00B0C (200-205 \u00B0F).',
+    tip: 'Do not leave the brewed coffee sitting on the grounds, as it keeps extracting and turns bitter.'
+  },
+  aeropress: {
+    name: 'AeroPress',
+    ratio: 14, min: 6, max: 16,
+    grind: 'Medium-fine for a short brew; finer grinds suit shorter times and coarser grinds suit longer ones.',
+    time: 'Commonly 1 to 2 minutes of steeping, then a slow press of about 20-30 seconds.',
+    temp: 'Recipes range from about 80 \u00B0C to just off the boil; lighter roasts usually go hotter.',
+    tip: 'Many recipes use a stronger ratio (1:6 to 1:10) and then add hot water to dilute to taste.'
+  },
+  espresso: {
+    name: 'Espresso',
+    ratio: 2, min: 1.5, max: 3,
+    grind: 'Fine, adjusted until the shot runs in the time range below.',
+    time: 'Commonly 25 to 30 seconds from the start of the pump to the end of the shot.',
+    temp: 'Set by the machine, usually about 90-96 \u00B0C (195-205 \u00B0F) at the group head.',
+    tip: 'Here the water figure is the target liquid in the cup (the yield). The machine uses a bit more water because the coffee puck holds some back.'
+  },
+  coldbrew: {
+    name: 'Cold brew (concentrate)',
+    ratio: 8, min: 4, max: 8,
+    grind: 'Coarse, similar to French press.',
+    time: 'Steep about 12 to 24 hours, at room temperature or in the fridge, then filter.',
+    temp: 'Cold or room-temperature water.',
+    tip: 'This makes a concentrate. Dilute it with water, ice or milk to taste, often about 1:1 to start.'
+  }
+};
+var METHOD_ORDER = ['pourover', 'frenchpress', 'aeropress', 'espresso', 'coldbrew'];
+var MODE_DEFAULTS_METRIC = { cups: 2, water: 500, coffee: 20 };
+
+function roundTo(n, d) { var f = Math.pow(10, d); return Math.round(n * f) / f; }
+
+// Convert a number typed in the display unit into metric (g or ml).
+function weightToG(v, unit) { return unit === 'oz' ? v * OZ_G : v; }
+function volumeToMl(v, unit) { return unit === 'floz' ? v * FLOZ_ML : v; }
+function gToWeight(g, unit) { return unit === 'oz' ? g / OZ_G : g; }
+function mlToVolume(ml, unit) { return unit === 'floz' ? ml / FLOZ_ML : ml; }
+
+// opts: { mode: 'cups'|'water'|'coffee', value, ratio, weightUnit, volumeUnit }
+// Returns { ok:true, coffeeG, waterMl } or { ok:false, error }
+function compute(opts) {
+  var value = opts.value, ratio = opts.ratio;
+  if (typeof value !== 'number' || !isFinite(value) || value <= 0) {
+    return { ok: false, error: 'Enter an amount greater than zero.' };
+  }
+  if (typeof ratio !== 'number' || !isFinite(ratio) || ratio < 1 || ratio > 30) {
+    return { ok: false, error: 'Enter a ratio between 1 and 30 (for example 16 for 1:16).' };
+  }
+  if (value > 100000) {
+    return { ok: false, error: 'That amount is too large. Please enter a smaller number.' };
+  }
+  var coffeeG, waterMl;
+  if (opts.mode === 'cups') {
+    waterMl = value * CUP_ML;
+    coffeeG = waterMl / ratio;
+  } else if (opts.mode === 'water') {
+    waterMl = volumeToMl(value, opts.volumeUnit);
+    coffeeG = waterMl / ratio;
+  } else if (opts.mode === 'coffee') {
+    coffeeG = weightToG(value, opts.weightUnit);
+    waterMl = coffeeG * ratio; // 1 ml of water is about 1 g
+  } else {
+    return { ok: false, error: 'Unknown mode.' };
+  }
+  return { ok: true, coffeeG: coffeeG, waterMl: waterMl };
+}
+
+function fmtWeight(g, unit) {
+  return unit === 'oz' ? roundTo(g / OZ_G, 2).toFixed(2) + ' oz' : roundTo(g, 1).toFixed(1) + ' g';
+}
+function fmtVolume(ml, unit) {
+  return unit === 'floz' ? roundTo(ml / FLOZ_ML, 1).toFixed(1) + ' fl oz' : Math.round(ml) + ' ml';
+}
+function otherWeightUnit(u) { return u === 'oz' ? 'g' : 'oz'; }
+function otherVolumeUnit(u) { return u === 'floz' ? 'ml' : 'floz'; }
+/* LOGIC END */
+
+/* UI */
+(function () {
+  if (typeof document === 'undefined') return;
+  var $ = function (id) { return document.getElementById(id); };
+  var methodEl = $('method'), ratioEl = $('ratio'), modeEl = $('mode'), amountEl = $('amount');
+  var wunitEl = $('wunit'), vunitEl = $('vunit');
+  var prevW = 'g', prevV = 'ml';
+
+  METHOD_ORDER.forEach(function (id) {
+    var o = document.createElement('option');
+    o.value = id;
+    o.textContent = METHODS[id].name + ' \u2013 1:' + METHODS[id].ratio;
+    methodEl.appendChild(o);
+  });
+
+  function defaultAmount() {
+    var m = modeEl.value, d = MODE_DEFAULTS_METRIC[m];
+    if (m === 'water') return vunitEl.value === 'floz' ? roundTo(d / FLOZ_ML, 1) : d;
+    if (m === 'coffee') return wunitEl.value === 'oz' ? roundTo(d / OZ_G, 2) : d;
+    return d;
+  }
+
+  function updateLabels() {
+    var m = modeEl.value;
+    $('amount-label').textContent = m === 'cups' ? 'Cups (1 cup = 8 fl oz / 237 ml)'
+      : m === 'water' ? 'Water (' + (vunitEl.value === 'floz' ? 'fl oz' : 'ml') + ')'
+      : 'Coffee (' + (wunitEl.value === 'oz' ? 'oz' : 'g') + ')';
+    amountEl.step = 'any';
+  }
+
+  function updateMethodInfo() {
+    var meth = METHODS[methodEl.value];
+    $('ratio-hint').textContent = 'Typical range for this method: 1:' + meth.min + ' to 1:' + meth.max + '. Default 1:' + meth.ratio + '.';
+    $('note-grind').textContent = meth.grind;
+    $('note-time').textContent = meth.time;
+    $('note-temp').textContent = meth.temp;
+    $('note-tip').textContent = meth.tip;
+    $('water-label').textContent = methodEl.value === 'espresso' ? 'Target espresso yield (liquid)' :
+      methodEl.value === 'coldbrew' ? 'Water for concentrate' : 'Water';
+    // Cups make little sense for a single espresso, so disable that option.
+    var cupsOpt = modeEl.querySelector('option[value="cups"]');
+    cupsOpt.disabled = methodEl.value === 'espresso';
+    if (cupsOpt.disabled && modeEl.value === 'cups') {
+      modeEl.value = 'coffee';
+      updateLabels();
+      amountEl.value = defaultAmount();
+    }
+  }
+
+  function render() {
+    var res = compute({
+      mode: modeEl.value,
+      value: parseFloat(amountEl.value),
+      ratio: parseFloat(ratioEl.value),
+      weightUnit: wunitEl.value,
+      volumeUnit: vunitEl.value
+    });
+    var err = $('error');
+    if (!res.ok) {
+      err.textContent = res.error;
+      $('out-coffee').textContent = '\u2013'; $('out-water').textContent = '\u2013';
+      $('out-coffee-alt').innerHTML = '&nbsp;'; $('out-water-alt').innerHTML = '&nbsp;';
+      return;
+    }
+    err.textContent = '';
+    var w = wunitEl.value, v = vunitEl.value;
+    $('out-coffee').textContent = fmtWeight(res.coffeeG, w);
+    $('out-coffee-alt').textContent = '= ' + fmtWeight(res.coffeeG, otherWeightUnit(w));
+    $('out-water').textContent = fmtVolume(res.waterMl, v);
+    $('out-water-alt').textContent = '= ' + fmtVolume(res.waterMl, otherVolumeUnit(v));
+  }
+
+  function setMethod(resetRatio) {
+    if (resetRatio) ratioEl.value = METHODS[methodEl.value].ratio;
+    updateMethodInfo();
+    render();
+  }
+
+  methodEl.addEventListener('change', function () { setMethod(true); });
+  $('reset-ratio').addEventListener('click', function () { setMethod(true); });
+  ratioEl.addEventListener('input', render);
+  amountEl.addEventListener('input', render);
+  modeEl.addEventListener('change', function () {
+    updateLabels();
+    amountEl.value = defaultAmount();
+    render();
+  });
+  wunitEl.addEventListener('change', function () {
+    if (modeEl.value === 'coffee') {
+      var cur = parseFloat(amountEl.value);
+      if (isFinite(cur) && cur > 0) {
+        var g = weightToG(cur, prevW);
+        amountEl.value = wunitEl.value === 'oz' ? roundTo(g / OZ_G, 2) : roundTo(g, 1);
+      }
+    }
+    prevW = wunitEl.value;
+    updateLabels();
+    render();
+  });
+  vunitEl.addEventListener('change', function () {
+    if (modeEl.value === 'water') {
+      var cur = parseFloat(amountEl.value);
+      if (isFinite(cur) && cur > 0) {
+        var ml = volumeToMl(cur, prevV);
+        amountEl.value = vunitEl.value === 'floz' ? roundTo(ml / FLOZ_ML, 1) : Math.round(ml);
+      }
+    }
+    prevV = vunitEl.value;
+    updateLabels();
+    render();
+  });
+
+  // Initial state
+  methodEl.value = 'pourover';
+  modeEl.value = 'cups';
+  updateLabels();
+  amountEl.value = defaultAmount();
+  setMethod(true);
+})();
+</script>
+</body>
+</html>
